@@ -45,6 +45,8 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState<'actions' | 'tags' | 'about'>('actions');
   const [videoMenuOpen, setVideoMenuOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [isCompactLayout, setIsCompactLayout] = useState(false);
+  const [mobileReportsOpen, setMobileReportsOpen] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>(() => {
     try {
       const raw = localStorage.getItem(TAG_FILTER_STORAGE_KEY);
@@ -58,6 +60,7 @@ export default function App() {
   const playerHostRef = useRef<HTMLDivElement | null>(null);
   const playerCardRef = useRef<HTMLDivElement | null>(null);
   const videoMenuAnchorRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const playerIntervalRef = useRef<number | null>(null);
   const progressRef = useRef(progressMap);
   const initialVideoKeyRef = useRef<string | null>(new URLSearchParams(window.location.search).get(VIDEO_URL_PARAM));
@@ -81,6 +84,23 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(TAG_FILTER_STORAGE_KEY, JSON.stringify(selectedTags));
   }, [selectedTags]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 760px)');
+
+    function handleChange(event: MediaQueryListEvent) {
+      setIsCompactLayout(event.matches);
+      setMobileReportsOpen(!event.matches);
+    }
+
+    setIsCompactLayout(mediaQuery.matches);
+    setMobileReportsOpen(!mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  }, []);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent | TouchEvent) {
@@ -296,8 +316,17 @@ export default function App() {
   function selectReport(record: ReportRecord) {
     setSelectedId(keyOf(record));
     updateStatus(record, progressMap[keyOf(record)]?.status ?? 'watching');
+    if (isCompactLayout) {
+      setMobileReportsOpen(false);
+    }
     setVideoMenuOpen(false);
     setStatusMenuOpen(false);
+  }
+
+  function focusSearch() {
+    setMobileReportsOpen(true);
+    searchInputRef.current?.focus({ preventScroll: true });
+    searchInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function updateSettings(nextSettings: AppSettings) {
@@ -475,34 +504,36 @@ export default function App() {
       </header>
 
       <main className="layout">
-        <aside className="sidebar">
+        <aside className={isCompactLayout ? 'sidebar sidebar--compact' : 'sidebar'}>
           <section className="panel search-panel">
             <label className="field-label" htmlFor="search">Tìm kiếm nâng cao</label>
-            <input
-              id="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              className="search-input"
-              placeholder="từ khóa ngăn cách bằng dấu phẩy. Ví dụ: hoài, lớn"
-            />
-            <div className="search-filter-row">
+            <div className="search-control-row">
+              <input
+                ref={searchInputRef}
+                id="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onFocus={() => setMobileReportsOpen(true)}
+                className="search-input"
+                placeholder="từ khóa ngăn cách bằng dấu phẩy. Ví dụ: hoài, lớn"
+              />
               <button className="icon-button filter-trigger" onClick={toggleStatusMenu} aria-label="Mở bộ lọc trạng thái" aria-expanded={statusMenuOpen}>
                 ...
               </button>
+            </div>
+            <div className="search-filter-row">
               <div className="tag-filter-pills">
-                {settings.tags.length ? (
-                  settings.tags.map((tag) => (
-                    <button
-                      key={tag}
-                      className={selectedTags.some((item) => item.toLowerCase() === tag.toLowerCase()) ? 'tag tag-filter active' : 'tag tag-filter'}
-                      onClick={() => toggleTagFilter(tag)}
-                    >
-                      {tag}
-                    </button>
-                  ))
-                ) : (
-                  <span className="hint">Chưa có tag để lọc.</span>
-                )}
+                {settings.tags.length
+                  ? settings.tags.map((tag) => (
+                      <button
+                        key={tag}
+                        className={selectedTags.some((item) => item.toLowerCase() === tag.toLowerCase()) ? 'tag tag-filter active' : 'tag tag-filter'}
+                        onClick={() => toggleTagFilter(tag)}
+                      >
+                        {tag}
+                      </button>
+                    ))
+                  : null}
               </div>
             </div>
             {statusMenuOpen ? (
@@ -534,10 +565,25 @@ export default function App() {
                 <h2>Danh sách báo cáo</h2>
                 <p>{filteredRecords.length} kết quả</p>
               </div>
-              <span className={isFresh ? 'cache-badge fresh' : 'cache-badge'}>{cacheSource === 'network' ? 'cache mới' : 'đang dùng cache'}</span>
+              <div className="list-header__actions">
+                {isCompactLayout ? (
+                  <button
+                    className="ghost-button flat list-collapse-button icon-button"
+                    onClick={() => setMobileReportsOpen((current) => !current)}
+                    aria-expanded={mobileReportsOpen}
+                    aria-controls="report-list"
+                    aria-label={mobileReportsOpen ? 'Thu gọn danh sách báo cáo' : 'Mở danh sách báo cáo'}
+                  >
+                    {mobileReportsOpen ? '▾' : '▸'}
+                  </button>
+                ) : null}
+                <button className="icon-button" onClick={handleReload} aria-label="Tải lại TSV" disabled={refreshing}>
+                  ↻
+                </button>
+              </div>
             </div>
 
-            <div className="report-list">
+            <div id="report-list" className={mobileReportsOpen ? 'report-list' : 'report-list report-list--collapsed'}>
               {loading ? (
                 <div className="empty-state">Đang tải dữ liệu TSV…</div>
               ) : error ? (
@@ -580,6 +626,9 @@ export default function App() {
                 </div>
                 <div className="content-actions content-actions--anchor" ref={videoMenuAnchorRef}>
                   <span className={`tag status-${selectedProgress?.status ?? 'will-watch'}`}>{statusLabel(selectedProgress?.status ?? 'will-watch')}</span>
+                  <button className="icon-button" onClick={focusSearch} aria-label="Mở tìm kiếm nâng cao">
+                    🔎
+                  </button>
                   <button className="icon-button" onClick={toggleVideoMenu} aria-label="Mở cài đặt video" aria-expanded={videoMenuOpen}>
                     ⚙
                   </button>
