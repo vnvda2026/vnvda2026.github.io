@@ -293,6 +293,45 @@ export default function App() {
 
   const selectedReport = selectedRecord ?? filteredRecords[0] ?? records[0] ?? null;
   const selectedKey = selectedReport ? keyOf(selectedReport) : null;
+
+  const suggestedRecords = useMemo(() => {
+    if (!selectedReport) {
+      return [];
+    }
+
+    const currentKey = selectedReport ? keyOf(selectedReport) : null;
+    return records
+      .filter((record) => keyOf(record) !== currentKey)
+      .map((record) => {
+        let score = 0;
+        if (record.speaker && record.speaker === selectedReport.speaker) {
+          score += 10;
+        }
+        if (record.room && record.room === selectedReport.room) {
+          score += 2;
+        }
+        const currentTerms = selectedReport.reportVi.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
+        const recordBlob = record.searchBlob;
+        currentTerms.forEach((term) => {
+          if (recordBlob.includes(term)) {
+            score += 1;
+          }
+        });
+        return { record, score };
+      })
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4)
+      .map((item) => item.record);
+  }, [records, selectedReport]);
+
+  const currentIndex = useMemo(
+    () => (selectedKey ? filteredRecords.findIndex((r) => keyOf(r) === selectedKey) : -1),
+    [filteredRecords, selectedKey],
+  );
+  const prevReport = currentIndex > 0 ? filteredRecords[currentIndex - 1] : null;
+  const nextReport = currentIndex >= 0 && currentIndex < filteredRecords.length - 1 ? filteredRecords[currentIndex + 1] : null;
+
   const selectedProgress = selectedKey ? progressMap[selectedKey] : undefined;
   const isFresh = cachedAt ? Date.now() - cachedAt < CACHE_FRESHNESS_HOURS * 60 * 60 * 1000 : false;
 
@@ -692,8 +731,47 @@ export default function App() {
                       Mở video gốc
                     </a>
                   </div>
+                  <div>
+                    <p className="field-label">Điều hướng</p>
+                    <div className="nav-buttons">
+                      <button
+                        className="mini-button"
+                        disabled={!prevReport}
+                        onClick={() => prevReport && selectReport(prevReport)}
+                        title={prevReport?.reportVi}
+                      >
+                        ← Trước
+                      </button>
+                      <button
+                        className="mini-button"
+                        disabled={!nextReport}
+                        onClick={() => nextReport && selectReport(nextReport)}
+                        title={nextReport?.reportVi}
+                      >
+                        Sau →
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
+
+              {suggestedRecords.length > 0 && (
+                <section className="suggestions-section">
+                  <h3 className="settings-title">Báo cáo liên quan</h3>
+                  <div className="suggestion-grid">
+                    {suggestedRecords.map((record) => (
+                      <button
+                        key={keyOf(record)}
+                        className="suggestion-card"
+                        onClick={() => selectReport(record)}
+                      >
+                        <strong>{record.reportVi}</strong>
+                        <p>{record.speaker}</p>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               <div className="details-grid">
                 <article className="detail-card">
