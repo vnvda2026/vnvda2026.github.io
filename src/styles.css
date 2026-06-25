@@ -512,9 +512,61 @@ h1 {
 }
 
 .player-meta {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   margin-top: 14px;
   align-items: start;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.suggestions-section {
+  margin-top: 24px;
+  padding: 16px;
+  border-radius: 24px;
+  background: rgba(3, 10, 20, 0.4);
+  border: 1px solid rgba(163, 185, 255, 0.1);
+}
+
+.suggestion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.suggestion-card {
+  text-align: left;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(12, 22, 38, 0.6);
+  border: 1px solid rgba(163, 185, 255, 0.08);
+  color: inherit;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+
+.suggestion-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(118, 167, 255, 0.4);
+  background: rgba(12, 22, 38, 0.8);
+}
+
+.suggestion-card strong {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.suggestion-card p {
+  font-size: 0.82rem;
+  color: #95a8c8;
 }
 
 .slide-link {
@@ -890,7 +942,8 @@ h1 {
   }
 
   .player-meta,
-  .details-grid {
+  .details-grid,
+  .suggestion-grid {
     grid-template-columns: 1fr;
   }
 
